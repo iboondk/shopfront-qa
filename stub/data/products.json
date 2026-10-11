@@ -1,0 +1,10 @@
+[
+  {"id": "prod_01", "handle": "classic-tee", "title": "Classic Tee", "description": "A soft everyday cotton tee with a relaxed fit.", "price_cents": 2500, "currency": "usd", "variant_id": "variant_01"},
+  {"id": "prod_02", "handle": "denim-jacket", "title": "Denim Jacket", "description": "A washed indigo denim jacket with brass buttons.", "price_cents": 8900, "currency": "usd", "variant_id": "variant_02"},
+  {"id": "prod_03", "handle": "canvas-tote", "title": "Canvas Tote", "description": "A sturdy natural canvas tote with reinforced handles.", "price_cents": 1800, "currency": "usd", "variant_id": "variant_03"},
+  {"id": "prod_04", "handle": "wool-beanie", "title": "Wool Beanie", "description": "A warm ribbed beanie knitted from merino wool.", "price_cents": 2200, "currency": "usd", "variant_id": "variant_04"},
+  {"id": "prod_05", "handle": "leather-belt", "title": "Leather Belt", "description": "A full-grain leather belt with a solid brass buckle.", "price_cents": 3400, "currency": "usd", "variant_id": "variant_05"},
+  {"id": "prod_06", "handle": "running-socks", "title": "Running Socks", "description": "Breathable cushioned socks for long runs, three pairs.", "price_cents": 1500, "currency": "usd", "variant_id": "variant_06"},
+  {"id": "prod_07", "handle": "field-notebook", "title": "Field Notebook", "description": "A pocket notebook with waterproof paper and a grid layout.", "price_cents": 1200, "currency": "usd", "variant_id": "variant_07"},
+  {"id": "prod_08", "handle": "insulated-bottle", "title": "Insulated Bottle", "description": "A double-wall insulated bottle that keeps drinks cold for 24 hours.", "price_cents": 4500, "currency": "usd", "variant_id": "variant_08"}
+]

@@ -1,0 +1,29 @@
+{
+  "name": "shopfront-qa",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "author": "iboondk",
+  "scripts": {
+    "stub": "node stub/server.mjs",
+    "test:all": "bash tools/scripts/run-ui-all.sh",
+    "test:stub": "node --test stub/server.test.mjs",
+    "test:pw": "playwright test -c ui/playwright/playwright.config.ts --grep-invert @visual",
+    "test:visual": "playwright test -c ui/playwright/playwright.config.ts --grep @visual",
+    "test:visual:update": "playwright test -c ui/playwright/playwright.config.ts --grep @visual --update-snapshots",
+    "test:cy": "cypress run --config-file ui/cypress/cypress.config.js --browser electron",
+    "test:se": ".venv/bin/pytest ui/selenium --junitxml=reports/raw/selenium/${RUN_ID:-local}/junit.xml",
+    "test:api": ".venv/bin/pytest api --junitxml=reports/raw/api/${RUN_ID:-local}/junit.xml",
+    "perf:k6": "k6 run perf/k6/smoke.js",
+    "perf:locust": "mkdir -p reports/raw/locust/${RUN_ID:-local} && .venv/bin/locust -f perf/locust/locustfile.py --headless -u 10 -r 5 -t 20s --csv reports/raw/locust/${RUN_ID:-local}/locust --only-summary"
+  },
+  "dependencies": {
+    "graphql": "16.9.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.48.2",
+    "@types/node": "20.16.11",
+    "cypress": "13.15.2",
+    "typescript": "5.6.3"
+  }
+}

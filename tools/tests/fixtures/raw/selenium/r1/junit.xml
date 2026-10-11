@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="test_scenarios" tests="3" errors="0" failures="0" skipped="1" time="5.1">
+  <testcase classname="tests.test_scenarios.TestStorefront" name="test_catalog_lists_products[catalog.lists-products]" time="2.0"/>
+  <testcase classname="tests.test_scenarios.TestStorefront" name="test_product_shows_detail[product.shows-detail]" time="0.1">
+    <skipped message="skipped on this shard"/>
+  </testcase>
+  <testcase classname="tests.test_scenarios.TestStorefront" name="test_cart_add_item[cart.add-item]" time="3.0"/>
+</testsuite>

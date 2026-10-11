@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="playwright" tests="3" failures="1" skipped="0" time="5.5">
+  <testsuite name="scenarios.spec.ts" tests="3" failures="1" skipped="0" errors="0" time="5.5">
+    <testcase name="catalog.lists-products shows 8 product cards" classname="scenarios.spec.ts" time="1.3"/>
+    <testcase name="product.shows-detail opens Classic Tee" classname="scenarios.spec.ts" time="1.7"/>
+    <testcase name="cart.add-item adds Classic Tee to the cart" classname="scenarios.spec.ts" time="2.5">
+      <failure message="expected cart-count to be 1, received 0">Error: expect(locator).toHaveText(expected)</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

@@ -1,0 +1,253 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Nightly UI matrix with injected stub flakiness, to feed the flaky-test detector.
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  STUB_PORT: "3100"
+  BASE_URL: "http://127.0.0.1:3100"
+  PUBLISHABLE_KEY: "pk_test_stub"
+
+jobs:
+  unit:
+    name: Unit tests (stub, report generator)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: npm ci
+      - name: Stub unit tests (node --test)
+        run: npm run test:stub
+      - name: Report generator tests (unittest)
+        run: python3 -m unittest discover -s tools/tests -t .
+
+  api:
+    name: API tests (REST + GraphQL)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: npm ci
+      - run: pip install -r requirements.txt
+      - name: Run API suite (pytest starts the stub on port 3101)
+        env:
+          RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          mkdir -p "reports/raw/api/${RUN_ID}"
+          pytest api --junitxml="reports/raw/api/${RUN_ID}/junit.xml"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: raw-api
+          path: reports/raw/
+          if-no-files-found: warn
+
+  ui:
+    name: UI ${{ matrix.framework }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        framework: [playwright, cypress, selenium]
+    env:
+      RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.framework }}
+      STUB_FLAKE_RATE: ${{ github.event_name == 'schedule' && '0.05' || '0' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: npm ci
+      - run: pip install -r requirements.txt
+      - name: Start stub storefront
+        run: |
+          node stub/server.mjs > stub.log 2>&1 &
+          for _ in $(seq 1 50); do
+            curl -fsS "${BASE_URL}/health" && exit 0
+            sleep 0.2
+          done
+          cat stub.log
+          exit 1
+      - name: Install Playwright Chromium
+        if: matrix.framework == 'playwright'
+        run: npx playwright install --with-deps chromium
+      - name: Run suite
+        run: |
+          mkdir -p "reports/raw/${{ matrix.framework }}/${RUN_ID}"
+          case "${{ matrix.framework }}" in
+            playwright) npm run test:pw ;;
+            cypress)    npm run test:cy ;;
+            selenium)   pytest ui/selenium --junitxml="reports/raw/selenium/${RUN_ID}/junit.xml" ;;
+          esac
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: raw-${{ matrix.framework }}
+          path: reports/raw/
+          if-no-files-found: warn
+
+  visual:
+    # Manual only: the repository ships darwin baselines. Linux baselines must be generated
+    # on a Linux runner (npm run test:visual:update) and committed before this job is enabled.
+    name: Visual regression (manual)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Start stub storefront
+        run: |
+          node stub/server.mjs > stub.log 2>&1 &
+          for _ in $(seq 1 50); do
+            curl -fsS "${BASE_URL}/health" && exit 0
+            sleep 0.2
+          done
+          cat stub.log
+          exit 1
+      - name: Visual tests
+        env:
+          RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-visual
+        run: |
+          mkdir -p "reports/raw/playwright/${RUN_ID}"
+          npm run test:visual
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: raw-visual
+          path: reports/raw/
+          if-no-files-found: warn
+
+  perf:
+    name: Performance smoke (k6 + Locust)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - uses: grafana/setup-k6-action@v1
+      - run: npm ci
+      - run: pip install -r requirements.txt
+      - name: Start stub storefront
+        run: |
+          node stub/server.mjs > stub.log 2>&1 &
+          for _ in $(seq 1 50); do
+            curl -fsS "${BASE_URL}/health" && exit 0
+            sleep 0.2
+          done
+          cat stub.log
+          exit 1
+      - name: k6 smoke (thresholds gate the job)
+        env:
+          RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          API_URL: ${{ env.BASE_URL }}
+        run: |
+          mkdir -p "reports/raw/k6/${RUN_ID}"
+          k6 run --summary-export "reports/raw/k6/${RUN_ID}/summary.json" perf/k6/smoke.js
+      - name: Locust headless (30 s)
+        env:
+          RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          API_URL: ${{ env.BASE_URL }}
+        run: |
+          mkdir -p "reports/raw/locust/${RUN_ID}"
+          locust -f perf/locust/locustfile.py --headless -u 10 -r 5 -t 30s \
+            --host "${API_URL}" --csv "reports/raw/locust/${RUN_ID}/locust" --only-summary
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: raw-perf
+          path: reports/raw/
+          if-no-files-found: warn
+
+  report:
+    name: Build report site
+    needs: [unit, api, ui, perf]
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: raw-*
+          path: raw-download
+      - name: Merge raw results into reports/raw
+        run: |
+          mkdir -p reports/raw
+          cp -R raw-download/*/. reports/raw/
+      - name: Generate static site (stdlib only)
+        run: python3 -m tools.report --raw reports/raw --out site
+      - uses: actions/upload-artifact@v4
+        with:
+          name: report-site
+          path: site/
+
+  deploy:
+    # Runs only for pushes to main. PR and schedule runs stop after the report job.
+    # Requires Settings > Pages > Build and deployment > Source set to "GitHub Actions".
+    name: Deploy report to GitHub Pages
+    needs: report
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: report-site
+          path: site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

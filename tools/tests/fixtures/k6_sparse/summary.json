@@ -1,0 +1,5 @@
+{
+  "metrics": {
+    "http_reqs": { "count": 10, "rate": 1.0 }
+  }
+}

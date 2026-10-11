@@ -1,0 +1,66 @@
+# Optional real-target mode: Saleor 3.20 with Postgres 15 and Redis 7.
+# Not run locally (docker is not installed on the dev machine). Use it only when you want
+# the GraphQL API tests to hit the official Saleor image instead of the stub.
+#
+#   cp infra/saleor/.env.example infra/saleor/.env   # then set real local values (optional: defaults work)
+#   docker compose -f infra/saleor/docker-compose.yml up -d    # migrate runs first, then api starts
+#   GRAPHQL_URL=http://localhost:8000/graphql/ TARGET=saleor npm run test:api
+#   docker compose -f infra/saleor/docker-compose.yml down -v
+#
+# Only placeholder secrets belong in this file. Keep real values in infra/saleor/.env (gitignored).
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: saleor
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-saleor}
+    volumes:
+      - saleor-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saleor"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  cache:
+    image: redis:7-alpine
+
+  # One-shot: applies database migrations and loads the demo data. It does NOT create a superuser.
+  migrate:
+    image: ghcr.io/saleor/saleor:3.20
+    command: sh -c 'python3 manage.py migrate && python3 manage.py populatedb'
+    environment:
+      DATABASE_URL: postgres://saleor:${POSTGRES_PASSWORD:-saleor}@db/saleor
+      CACHE_URL: redis://cache:6379/0
+      SECRET_KEY: ${SALEOR_SECRET_KEY:-change-me-local-only}
+      ALLOWED_HOSTS: localhost,api
+      DEBUG: "False"
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_started
+    restart: "no"
+
+  api:
+    image: ghcr.io/saleor/saleor:3.20
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgres://saleor:${POSTGRES_PASSWORD:-saleor}@db/saleor
+      CACHE_URL: redis://cache:6379/0
+      SECRET_KEY: ${SALEOR_SECRET_KEY:-change-me-local-only}
+      ALLOWED_HOSTS: localhost,api
+      DEBUG: "False"
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_started
+      # Wait for migrate + populatedb so a plain `docker compose up` starts the API on a migrated database.
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  saleor-db:

@@ -1,0 +1,13 @@
+{
+  "root_group": { "name": "", "path": "", "id": "d41d8cd98f00b204e9800998ecf8427e", "groups": {}, "checks": {} },
+  "metrics": {
+    "http_req_duration": {
+      "type": "trend", "contains": "time",
+      "values": { "avg": 42.5, "min": 10.1, "med": 38.0, "max": 120.3, "p(90)": 80.0, "p(95)": 95.2 }
+    },
+    "http_reqs": { "type": "counter", "contains": "default", "values": { "count": 1200, "rate": 40.0 } },
+    "http_req_failed": { "type": "rate", "contains": "default", "values": { "rate": 0.0025, "passes": 2997, "fails": 3 } },
+    "checks": { "type": "rate", "contains": "default", "values": { "rate": 0.9975, "passes": 2997, "fails": 3 } },
+    "vus": { "type": "gauge", "contains": "default", "values": { "value": 5, "min": 1, "max": 5 } }
+  }
+}
