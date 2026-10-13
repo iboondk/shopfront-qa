@@ -13,8 +13,12 @@ if [[ -f "$REPO_ROOT/tools/scripts/local.env" ]]; then
   source "$REPO_ROOT/tools/scripts/local.env"
 fi
 
+# Cache variables (npm_config_cache, PIP_CACHE_DIR, CYPRESS_CACHE_FOLDER, SE_CACHE_PATH) point at the
+# external cache volume. PLAYWRIGHT_BROWSERS_PATH is an extra beyond those four.
 # Set a cache variable only when the caller has not already set it and its parent directory exists.
 # On machines without the external cache volume, the tools fall back to their default locations.
+# So on a machine with the volume all of them are exported; without the volume none are set.
+# Callers and local.env can override any of them.
 set_cache_var() {
   local name="$1" dir="$2"
   if [[ -z "${!name:-}" && -d "$(dirname "$dir")" ]]; then
@@ -47,7 +51,11 @@ PORT="$PORT" node stub/server.mjs >"reports/stub-${RUN_ID}.log" 2>&1 &
 STUB_PID=$!
 
 healthy=0
-for _ in $(seq 1 50); do
+# Poll every 0.2 s for STUB_HEALTH_TIMEOUT_S seconds (default 60). Slow disks, such as an external
+# volume, can take far longer than a fast local SSD to start the stub.
+STUB_HEALTH_TIMEOUT_S="${STUB_HEALTH_TIMEOUT_S:-60}"
+health_attempts=$(( ${STUB_HEALTH_TIMEOUT_S%.*} * 5 ))
+for _ in $(seq 1 "$health_attempts"); do
   if curl -fsS "${BASE_URL}/health" >/dev/null 2>&1; then
     healthy=1
     break

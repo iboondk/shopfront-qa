@@ -14,7 +14,7 @@ describe('storefront scenarios', () => {
 
   it('product.shows-detail', () => {
     cy.visit('/');
-    cy.contains('a', 'Classic Tee').click();
+    cy.get('[data-testid=product-link]').contains('Classic Tee').click();
     cy.location('pathname').should('match', /\/products\/classic-tee$/);
     cy.get('[data-testid=product-title]').should('have.text', 'Classic Tee');
     cy.get('[data-testid=product-price]').should('have.text', '$25.00');

@@ -9,7 +9,11 @@ test('catalog.lists-products', async ({ page }) => {
 
 test('product.shows-detail', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('link', { name: 'Classic Tee' }).click();
+  await page
+    .getByTestId('product-card')
+    .filter({ hasText: 'Classic Tee' })
+    .getByTestId('product-link')
+    .click();
   await expect(page).toHaveURL(/\/products\/classic-tee$/);
   await expect(page.getByTestId('product-title')).toHaveText('Classic Tee');
   await expect(page.getByTestId('product-price')).toHaveText('$25.00');

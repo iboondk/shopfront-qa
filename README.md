@@ -1,6 +1,9 @@
 # Shopfront-QA
 
-[![CI](https://github.com/iboondk/shopfront-qa/actions/workflows/ci.yml/badge.svg)](https://github.com/iboondk/shopfront-qa/actions/workflows/ci.yml)
+<!-- Status badge placeholder: replace OWNER/REPO with the real GitHub path once the repository is published. -->
+[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
+
+Licensed under the MIT License. See [WRITEUP.md](WRITEUP.md) for the project write-up.
 
 End-to-end, API and performance test suite for a storefront. The same three shopping scenarios run through
 **Playwright**, **Cypress** and **Selenium** against one local stub storefront. The suite also covers
@@ -68,6 +71,7 @@ npx playwright install chromium
 # 4. Run everything: starts one stub, runs the three UI suites, then builds the report site
 #    Optional: copy tools/scripts/local.env.example to tools/scripts/local.env to set machine-specific
 #    cache locations. Without it, the tools use their default cache directories.
+#    run-ui-all.sh exports the cache variables only when their directory exists (see PLAN.md, section 4).
 npm run test:all              # same as: bash tools/scripts/run-ui-all.sh
 open site/index.html          # Linux: xdg-open site/index.html
 ```
@@ -94,10 +98,12 @@ A single `docker compose up` is only meaningful for the optional Saleor target. 
 run the suite against the stub.
 
 ```bash
-cp infra/saleor/.env.example infra/saleor/.env   # optional, placeholder values already work
-docker compose -f infra/saleor/docker-compose.yml up -d   # postgres + redis, migrate, then api on :8000
+cd infra/saleor
+cp .env.example .env                  # optional: placeholder values already work, and defaults apply without it
+docker compose up -d                  # postgres + redis, migrate, then api on :8000
+cd ../..
 GRAPHQL_URL=http://localhost:8000/graphql/ TARGET=saleor npm run test:api
-docker compose -f infra/saleor/docker-compose.yml down -v
+(cd infra/saleor && docker compose down -v)
 ```
 
 The compose file has not been run in this repository: the development machine has no Docker. See
@@ -112,7 +118,8 @@ repository.
 | Variable | Default | Used by |
 |---|---|---|
 | `BASE_URL` | `http://127.0.0.1:3100` | UI suites (Playwright, Cypress, Selenium) |
-| `API_URL` | `http://127.0.0.1:3100` | API tests, k6, Locust |
+| `API_URL` | API tests: unset, so the suite starts its own stub on `http://127.0.0.1:3101`. k6 and Locust: `http://127.0.0.1:3100` | API tests; k6, Locust |
+| `STUB_HEALTH_TIMEOUT_S` | `60` | Seconds the API, Selenium and `run-ui-all.sh` wait for the stub's `/health` before failing |
 | `GRAPHQL_URL` | `$API_URL/graphql` | GraphQL API tests |
 | `PUBLISHABLE_KEY` | `pk_test_stub` | REST `x-publishable-api-key` header |
 | `TARGET` | `stub` | API tests (`saleor` skips REST modules) |
@@ -168,20 +175,21 @@ that is set, the `deploy` job fails on `main` and every other job still runs.
 
 ## Verification status
 
-What was run on the development machine (macOS, Node 24, Python 3.10). No timing numbers are recorded
-here. The report site is the source for timings.
+What was run on the development machine (macOS, Node 24, Python 3.10) during the packaging session. No timing
+numbers are recorded here. The report site is the source for timings. Results from earlier sessions are not
+repeated here, because they were not re-run.
 
 | Item | Status |
 |---|---|
-| Stub unit tests (`node --test`) | Run, all pass |
-| Report generator tests (unittest) | Run, all pass |
-| API suite (pytest, REST + GraphQL) | Run, all pass |
-| Playwright scenarios | Run, all pass |
-| Playwright visual tests | Run, pass against the darwin baselines only |
-| Cypress scenarios | Run through `run-ui-all.sh`, all pass |
-| Selenium scenarios | Run, all pass |
-| Full pipeline `tools/scripts/run-ui-all.sh` | Run, exit 0, report site generated |
-| Locust headless smoke (20 s, stub) | Run, 0 failed requests |
+| Stub unit tests (`node --test`) | Run, 16 of 16 pass |
+| Report generator tests (unittest) | Run, 31 of 31 pass |
+| API suite (pytest, REST + GraphQL) | Run, 20 of 20 pass. Re-run in the review session with the suite starting its own stub on 3101 (`API_URL` unset). On the external `/Volumes/Hazel` volume, an early review run failed at the old 10 s health check, and later runs passed (one took about 70 s overall). The health timeout is now `STUB_HEALTH_TIMEOUT_S` (default 60 s). A review run with `API_URL` pointing at an already-running stub also passed 20 of 20 |
+| Selenium scenarios | Run, 3 of 3 pass. Re-run in the review session with the suite starting its own stub on 3100 (`BASE_URL` unset) |
+| Playwright scenarios | **Failing in this environment.** The suite cannot open a page (`browserContext.newPage` times out). In a separate probe the `load` event never fired, while DOMContentLoaded did and 8 product cards rendered. Root cause not yet found |
+| Playwright visual tests | Not re-run in this session. The repository ships darwin baselines only |
+| Cypress scenarios | **Not verified.** The full pipeline hung after an Electron network-service crash |
+| Full pipeline `tools/scripts/run-ui-all.sh` | **Not verified** end to end in this session, because of the Playwright and Cypress issues above |
+| Locust headless smoke (20 s, stub) | Not re-run in this session |
 | k6 smoke | **Not run.** The `k6` binary is not installed locally. CI installs it |
 | Saleor compose stack | **Not run.** Docker is not installed locally. Only YAML structure was checked |
 | CI workflow | **Not run on GitHub.** Only YAML structure was checked locally |
@@ -193,6 +201,9 @@ here. The report site is the source for timings.
   committed.
 - Medusa v2 has no official prebuilt image, so a Medusa target is future work and is not claimed.
 - Cypress and k6 need a running stub. Only Playwright, Selenium and pytest start it on their own.
+- `run-ui-all.sh` exports the cache variables (`npm_config_cache`, `PIP_CACHE_DIR`, `CYPRESS_CACHE_FOLDER`,
+  `SE_CACHE_PATH`, plus `PLAYWRIGHT_BROWSERS_PATH`) only when their directory exists, and not
+  unconditionally as the original spec said. Without the volume, the tools keep their defaults.
 - Shard-by-spec for Cypress and Selenium is not implemented, because each framework currently has one
   spec file. Playwright sharding (`--shard`) is also not wired into CI yet.
 

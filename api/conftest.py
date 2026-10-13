@@ -4,7 +4,8 @@ REST tests follow the Medusa v2 store API shape; GraphQL tests follow the Saleor
 
 - target: TARGET env var, default 'stub'. REST test modules skip when target == 'saleor'.
 - stub_server: session fixture. When API_URL is unset it starts `node stub/server.mjs` on
-  PORT 3101, polls /health for up to 10 s, and terminates the process at teardown.
+  PORT 3101, polls /health for up to STUB_HEALTH_TIMEOUT_S seconds (default 60), and
+  terminates the process at teardown.
   It is not autouse, so a run that sets API_URL (for example TARGET=saleor) never starts it.
 - api_url: API_URL env var, or the stub on http://127.0.0.1:3101.
 - graphql_url: GRAPHQL_URL env var, or api_url + '/graphql'.
@@ -25,7 +26,7 @@ import requests
 REPO_ROOT = Path(__file__).resolve().parents[1]
 STUB_PORT = 3101
 STUB_URL = f"http://127.0.0.1:{STUB_PORT}"
-HEALTH_TIMEOUT_S = 10.0
+HEALTH_TIMEOUT_S = float(os.environ.get("STUB_HEALTH_TIMEOUT_S", "60"))
 REQUEST_TIMEOUT_S = 10
 
 

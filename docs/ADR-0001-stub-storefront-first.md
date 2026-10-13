@@ -24,7 +24,9 @@ Classic Tee" and "$25.00".
 
 ## Consequences
 
-- The stub starts in well under a second and runs the same way on a laptop and in CI.
+- The stub typically starts in under a second. Slow disks, such as an external volume, can take longer,
+  so the start-up wait is configurable (`STUB_HEALTH_TIMEOUT_S`, default 60 s). It runs the same way on a
+  laptop and in CI.
 - Fault injection gives the flaky-test detector and the performance tests something real to measure.
 - The stub is not a real storefront. A passing run does not prove anything about Saleor or Medusa
   behaviour. This is why the real target is opt-in (ADR-0004).
