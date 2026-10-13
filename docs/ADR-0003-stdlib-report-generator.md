@@ -26,7 +26,7 @@ and does not fill in a number.
 ## Consequences
 
 - No install step is needed for the report, and the code is covered by unittest with XML and JSON fixtures.
-- The report does not depend on the other milestones, so it could be built in parallel.
+- The report generator does not depend on the other components, so it can be developed independently.
 - Hand-written inline CSS is more work than a template engine. The page uses `prefers-color-scheme` to
   support dark mode.
 - Timing comparisons are only as good as the input. The docs contain no benchmark numbers by hand.

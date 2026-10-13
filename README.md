@@ -1,7 +1,6 @@
 # Shopfront-QA
 
-<!-- Status badge placeholder: replace OWNER/REPO with the real GitHub path once the repository is published. -->
-[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
+[![CI](https://github.com/iboondk/shopfront-qa/actions/workflows/ci.yml/badge.svg)](https://github.com/iboondk/shopfront-qa/actions/workflows/ci.yml)
 
 Licensed under the MIT License. See [WRITEUP.md](WRITEUP.md) for the project write-up.
 
@@ -54,7 +53,7 @@ flowchart LR
 
 ## Quick start
 
-Requirements: Node 20 or newer, Python 3.10, and Google Chrome for Selenium. Docker is **not**
+Requirements: Node 20 (see `.nvmrc`; Cypress 13 hangs under Node 24), Python 3.10, and Google Chrome for Selenium. Docker is **not**
 needed for the default path.
 
 ```bash
@@ -71,7 +70,7 @@ npx playwright install chromium
 # 4. Run everything: starts one stub, runs the three UI suites, then builds the report site
 #    Optional: copy tools/scripts/local.env.example to tools/scripts/local.env to set machine-specific
 #    cache locations. Without it, the tools use their default cache directories.
-#    run-ui-all.sh exports the cache variables only when their directory exists (see PLAN.md, section 4).
+#    run-ui-all.sh exports the cache variables only when their directory exists.
 npm run test:all              # same as: bash tools/scripts/run-ui-all.sh
 open site/index.html          # Linux: xdg-open site/index.html
 ```
@@ -175,21 +174,20 @@ that is set, the `deploy` job fails on `main` and every other job still runs.
 
 ## Verification status
 
-What was run on the development machine (macOS, Node 24, Python 3.10) during the packaging session. No timing
-numbers are recorded here. The report site is the source for timings. Results from earlier sessions are not
-repeated here, because they were not re-run.
+Last local audit on macOS (Python 3.10). The UI suites ran under Node 20. No timing numbers are recorded
+here. The report site is the source for timings.
 
 | Item | Status |
 |---|---|
 | Stub unit tests (`node --test`) | Run, 16 of 16 pass |
 | Report generator tests (unittest) | Run, 31 of 31 pass |
-| API suite (pytest, REST + GraphQL) | Run, 20 of 20 pass. Re-run in the review session with the suite starting its own stub on 3101 (`API_URL` unset). On the external `/Volumes/Hazel` volume, an early review run failed at the old 10 s health check, and later runs passed (one took about 70 s overall). The health timeout is now `STUB_HEALTH_TIMEOUT_S` (default 60 s). A review run with `API_URL` pointing at an already-running stub also passed 20 of 20 |
-| Selenium scenarios | Run, 3 of 3 pass. Re-run in the review session with the suite starting its own stub on 3100 (`BASE_URL` unset) |
-| Playwright scenarios | **Failing in this environment.** The suite cannot open a page (`browserContext.newPage` times out). In a separate probe the `load` event never fired, while DOMContentLoaded did and 8 product cards rendered. Root cause not yet found |
-| Playwright visual tests | Not re-run in this session. The repository ships darwin baselines only |
-| Cypress scenarios | **Not verified.** The full pipeline hung after an Electron network-service crash |
-| Full pipeline `tools/scripts/run-ui-all.sh` | **Not verified** end to end in this session, because of the Playwright and Cypress issues above |
-| Locust headless smoke (20 s, stub) | Not re-run in this session |
+| API suite (pytest, REST + GraphQL) | Run, 20 of 20 pass (suite started its own stub on 3101) |
+| Selenium scenarios | Run, 3 of 3 pass |
+| Playwright scenarios | Run, 3 of 3 pass. An earlier failure came from a missing browser: set `PLAYWRIGHT_BROWSERS_PATH` or run `npx playwright install chromium` |
+| Playwright visual tests | Run, 2 of 2 pass against the darwin baselines |
+| Cypress scenarios | Run, 3 of 3 pass under Node 20. Under Node 24, Cypress 13.15 hangs in the spec `file:preprocessor` step with no output |
+| Full pipeline `tools/scripts/run-ui-all.sh` | Run under Node 20, exit 0: Playwright 3/3, Cypress 3/3, Selenium 3/3, report site written |
+| Locust headless smoke (20 s, stub) | Run, 0 failures. In one cold first run, Locust stopped at once with 0 requests. The two runs after it were normal |
 | k6 smoke | **Not run.** The `k6` binary is not installed locally. CI installs it |
 | Saleor compose stack | **Not run.** Docker is not installed locally. Only YAML structure was checked |
 | CI workflow | **Not run on GitHub.** Only YAML structure was checked locally |
@@ -203,7 +201,7 @@ repeated here, because they were not re-run.
 - Cypress and k6 need a running stub. Only Playwright, Selenium and pytest start it on their own.
 - `run-ui-all.sh` exports the cache variables (`npm_config_cache`, `PIP_CACHE_DIR`, `CYPRESS_CACHE_FOLDER`,
   `SE_CACHE_PATH`, plus `PLAYWRIGHT_BROWSERS_PATH`) only when their directory exists, and not
-  unconditionally as the original spec said. Without the volume, the tools keep their defaults.
+  unconditionally. Without the volume, the tools keep their defaults.
 - Shard-by-spec for Cypress and Selenium is not implemented, because each framework currently has one
   spec file. Playwright sharding (`--shard`) is also not wired into CI yet.
 

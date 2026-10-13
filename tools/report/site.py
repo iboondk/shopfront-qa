@@ -108,7 +108,7 @@ def _table(headers: list[str], rows: list[list[str]], numeric_from: int = 1) -> 
 
 def _cell(content: str, numeric: bool = True, css: str = "") -> str:
     if css:
-        # The fastest-cell marker is the bare class "fastest", as the spec requires.
+        # The fastest-cell marker is the bare class "fastest", so tests and styles can target it.
         return f'<td class="{css}">{content}</td>'
     attr = ' class="num"' if numeric else ""
     return f"<td{attr}>{content}</td>"
